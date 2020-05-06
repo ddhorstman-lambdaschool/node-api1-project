@@ -1,12 +1,17 @@
 const express = require("express");
 const shortID = require("shortid");
+const fs = require("fs");
 
 const server = express();
 
 const PORT = process.env.PORT || 5000;
-let users = [];
+let users = JSON.parse(fs.readFileSync("users.json")).users;
 
 server.use(express.json());
+
+function saveUsers() {
+  fs.writeFileSync("users.json", JSON.stringify({ users }, null, 2));
+}
 
 //----------------------------------------------------------------------------//
 //GET Requests - retrieve all users or a specific user
@@ -18,6 +23,7 @@ server.get("/api/users", (req, res) => {
         errorMessage: "There user information could not be retrieved.",
       });
 });
+
 server.get("/api/users/:id", (req, res) => {
   try {
     const found = users.find(user => user.id == req.params.id);
@@ -49,6 +55,7 @@ server.post("/api/users", (req, res) => {
   const entry = { id: shortID.generate(), name, bio };
   try {
     users.push(entry);
+    saveUsers();
   } catch {
     res.status(500).json({
       errorMessage: "There was an error while saving the user to the database.",
@@ -72,6 +79,7 @@ server.patch("/api/users/:id", (req, res) => {
 
   if (found) {
     Object.assign(found, req.body);
+    saveUsers();
     res.status(200).json(found);
   } else {
     res.status(404).json({
@@ -95,19 +103,19 @@ server.put("/api/users/:id", (req, res) => {
   }
   try {
     foundIdx = users.findIndex(user => user.id == req.params.id);
+    if (foundIdx !== -1) {
+      const entry = { ...req.body, id: req.params.id };
+      users[foundIdx] = entry;
+      saveUsers();
+      res.status(200).json(entry);
+    } else {
+      res.status(404).json({
+        message: `No user found with id '${req.params.id}'.`,
+      });
+    }
   } catch {
     res.status(500).json({
-      errorMessage: "There user information could not be retrieved.",
-    });
-  }
-
-  if (foundIdx !== -1) {
-    const entry = { ...req.body, id: req.params.id };
-    users[foundIdx] = entry;
-    res.status(200).json(entry);
-  } else {
-    res.status(404).json({
-      message: `No user found with id '${req.params.id}'.`,
+      errorMessage: "There user information could not be retrieved/updated.",
     });
   }
 });
@@ -121,11 +129,12 @@ server.delete("/api/users/:id", (req, res) => {
     found = users.find(user => user.id == req.params.id);
   } catch {
     res.status(500).json({
-      errorMessage: "There user information could not be retrieved.",
+      errorMessage: "There user information could not be retrieved/updated.",
     });
   }
   if (found) {
     users = users.filter(user => user.id != req.params.id);
+    saveUsers();
     res.status(200).json(found);
   } else {
     res.status(404).json({
