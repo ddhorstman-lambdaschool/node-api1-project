@@ -5,12 +5,23 @@ const fs = require("fs");
 const server = express();
 
 const PORT = process.env.PORT || 5000;
-let users = JSON.parse(fs.readFileSync("users.json")).users;
+let users = JSON.parse(fs.readFileSync("./data/users.json"));
 
 server.use(express.json());
 
-function saveUsers() {
-  fs.writeFileSync("users.json", JSON.stringify({ users }, null, 2));
+function saveUsers(res) {
+  try {
+    fs.writeFileSync("./data/users.json", JSON.stringify(users, null, 2));
+    return 0;
+  } catch {
+    res
+      .status(500)
+      .json({
+        errorMessage: "There was an error while updating the database.",
+      })
+      .end();
+    return 1;
+  }
 }
 
 //----------------------------------------------------------------------------//
@@ -18,23 +29,24 @@ function saveUsers() {
 //----------------------------------------------------------------------------//
 server.get("/api/users", (req, res) => {
   users
-    ? res.status(200).json({ users })
+    ? res.status(200).json(users)
     : res.status(500).json({
-        errorMessage: "There user information could not be retrieved.",
+        errorMessage: "The user information could not be retrieved.",
       });
 });
 
 server.get("/api/users/:id", (req, res) => {
   try {
-    const found = users.find(user => user.id == req.params.id);
+    const { id } = req.params;
+    const found = users.find(user => user.id == id);
     found
       ? res.status(200).json(found)
       : res.status(404).json({
-          message: `No user found with id '${req.params.id}'.`,
+          message: `No user found with id '${id}'.`,
         });
   } catch {
     res.status(500).json({
-      errorMessage: "There user information could not be retrieved.",
+      errorMessage: "The user information could not be retrieved.",
     });
   }
 });
@@ -44,46 +56,45 @@ server.get("/api/users/:id", (req, res) => {
 //----------------------------------------------------------------------------//
 server.post("/api/users", (req, res) => {
   const { name, bio } = req.body;
-
   if (!(name && bio)) {
     res.status(400).json({
       errorMessage:
         "Please provide both a 'name' and a 'bio' field for the user.",
     });
+  } else {
+    const entry = { id: shortID.generate(), name, bio };
+    try {
+      users.push(entry);
+      //return value of 0 means the operation succeeded
+      saveUsers(res) === 0 && res.status(201).json(entry);
+    } catch {
+      res.status(500).json({
+        errorMessage:
+          "There was an error while saving the user to the database.",
+      });
+    }
   }
-
-  const entry = { id: shortID.generate(), name, bio };
-  try {
-    users.push(entry);
-    saveUsers();
-  } catch {
-    res.status(500).json({
-      errorMessage: "There was an error while saving the user to the database.",
-    });
-  }
-  res.status(201).json(entry);
 });
 
 //----------------------------------------------------------------------------//
 //PATCH Requests - update an existing user
 //----------------------------------------------------------------------------//
 server.patch("/api/users/:id", (req, res) => {
-  let found;
   try {
-    found = users.find(user => user.id == req.params.id);
+    const { id } = req.params;
+    let found = users.find(user => user.id == id);
+    if (found) {
+      Object.assign(found, req.body);
+      //return value of 0 means the operation succeeded
+      saveUsers(res) === 0 && res.status(200).json(found);
+    } else {
+      res.status(404).json({
+        message: `No user found with id '${id}'.`,
+      });
+    }
   } catch {
     res.status(500).json({
-      errorMessage: "There user information could not be retrieved.",
-    });
-  }
-
-  if (found) {
-    Object.assign(found, req.body);
-    saveUsers();
-    res.status(200).json(found);
-  } else {
-    res.status(404).json({
-      message: `No user found with id '${req.params.id}'.`,
+      errorMessage: "There was an error while updating the user.",
     });
   }
 });
@@ -92,30 +103,30 @@ server.patch("/api/users/:id", (req, res) => {
 //PUT Requests - replace an existing user
 //----------------------------------------------------------------------------//
 server.put("/api/users/:id", (req, res) => {
-  let foundIdx;
-  const { name, bio } = req.body;
-
-  if (!(name && bio)) {
-    res.status(400).json({
-      errorMessage:
-        "Please provide both a 'name' and a 'bio' field for the user.",
-    });
-  }
   try {
-    foundIdx = users.findIndex(user => user.id == req.params.id);
+    const { name, bio } = req.body;
+    const { id } = req.params;
+    let foundIdx = users.findIndex(user => user.id == id);
     if (foundIdx !== -1) {
-      const entry = { ...req.body, id: req.params.id };
-      users[foundIdx] = entry;
-      saveUsers();
-      res.status(200).json(entry);
+      if (!(name && bio)) {
+        res.status(400).json({
+          errorMessage:
+            "Please provide both a 'name' and a 'bio' field for the user.",
+        });
+      } else {
+        const entry = { ...req.body, id };
+        users[foundIdx] = entry;
+        //return value of 0 means the operation succeeded
+        saveUsers(res) === 0 && res.status(200).json(entry);
+      }
     } else {
       res.status(404).json({
-        message: `No user found with id '${req.params.id}'.`,
+        message: `No user found with id '${id}'.`,
       });
     }
   } catch {
     res.status(500).json({
-      errorMessage: "There user information could not be retrieved/updated.",
+      errorMessage: "There was an error while updating the user.",
     });
   }
 });
@@ -124,21 +135,21 @@ server.put("/api/users/:id", (req, res) => {
 //DELETE Requests - delete an existing user
 //----------------------------------------------------------------------------//
 server.delete("/api/users/:id", (req, res) => {
-  let found;
   try {
-    found = users.find(user => user.id == req.params.id);
+    const { id } = req.params;
+    let found = users.find(user => user.id == id);
+    if (found) {
+      users = users.filter(user => user.id != id);
+      //return value of 0 means the operation succeeded
+      saveUsers(res) === 0 && res.status(200).json(found);
+    } else {
+      res.status(404).json({
+        message: `No user found with id '${id}'.`,
+      });
+    }
   } catch {
     res.status(500).json({
-      errorMessage: "There user information could not be retrieved/updated.",
-    });
-  }
-  if (found) {
-    users = users.filter(user => user.id != req.params.id);
-    saveUsers();
-    res.status(200).json(found);
-  } else {
-    res.status(404).json({
-      message: `No user found with id '${req.params.id}'.`,
+      errorMessage: "There was an error while updating the user.",
     });
   }
 });
