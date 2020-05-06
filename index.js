@@ -72,7 +72,8 @@ server.post("/api/users", (req, res) => {
   try {
     users.push(entry);
     //return value of 0 means the operation succeeded
-    saveUsers(res) === 0 && res.status(201).json(entry);
+    saveUsers(res) === 0
+      && res.status(201).json(entry);
   } catch {
     res.status(500).json({
       errorMessage: "There was an error while saving the user to the database.",
@@ -90,7 +91,8 @@ server.patch("/api/users/:id", (req, res) => {
     if (found) {
       Object.assign(found, { ...req.body, id });
       //return value of 0 means the operation succeeded
-      saveUsers(res) === 0 && res.status(200).json(found);
+      saveUsers(res) === 0
+        && res.status(200).json(found);
     } else {
       res.status(404).json({
         message: `No user found with id '${id}'.`,
@@ -127,7 +129,8 @@ server.put("/api/users/:id", (req, res) => {
     const entry = { ...req.body, id };
     users[foundIdx] = entry;
     //return value of 0 means the operation succeeded
-    saveUsers(res) === 0 && res.status(200).json(entry);
+    saveUsers(res) === 0
+      && res.status(200).json(entry);
   } catch {
     res.status(500).json({
       errorMessage: "There was an error while updating the user.",
@@ -145,7 +148,8 @@ server.delete("/api/users/:id", (req, res) => {
     if (found) {
       users = users.filter(user => user.id != id);
       //return value of 0 means the operation succeeded
-      saveUsers(res) === 0 && res.status(200).json(found);
+      saveUsers(res) === 0
+        && res.status(200).json(found);
     } else {
       res.status(404).json({
         message: `No user found with id '${id}'.`,
