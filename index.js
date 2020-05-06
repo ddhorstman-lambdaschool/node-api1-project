@@ -9,15 +9,25 @@ let users = [];
 server.use(express.json());
 
 server.get("/api/users", (req, res) => {
-  res.status(200).json({ users });
+  users
+    ? res.status(200).json({ users })
+    : res.status(500).json({
+        errorMessage: "There user information could not be retrieved.",
+      });
 });
 server.get("/api/users/:id", (req, res) => {
-  const found = users.find(user => user.id == req.params.id);
-  found
-    ? res.status(200).json(found)
-    : res.status(404).json({
-        message: `No user found with id '${req.params.id}'.`,
-      });
+  try {
+    const found = users.find(user => user.id == req.params.id);
+    found
+      ? res.status(200).json(found)
+      : res.status(404).json({
+          message: `No user found with id '${req.params.id}'.`,
+        });
+  } catch {
+    res.status(500).json({
+      errorMessage: "There user information could not be retrieved.",
+    });
+  }
 });
 
 server.post("/api/users", (req, res) => {
@@ -30,7 +40,14 @@ server.post("/api/users", (req, res) => {
     });
   } else {
     const entry = { id: shortID.generate(), name, bio };
-    users.push(entry);
+    try {
+      users.push(entry);
+    } catch {
+      res.status(500).json({
+        errorMessage:
+          "There was an error while saving the user to the database.",
+      });
+    }
     res.status(201).json(entry);
   }
 });
